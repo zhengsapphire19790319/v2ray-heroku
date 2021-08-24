@@ -1,96 +1,46 @@
 #!/bin/sh
-# Download and install V2Ray
-mkdir /tmp/v
-curl -L -H "Cache-Control: no-cache" -o /tmp/v/v.zip https://github.com/v2fly/v2ray-core/releases/latest/download/v2ray-linux-64.zip
-#curl -L -H "Cache-Control: no-cache" -o /tmp/v/v.zip https://github.com/v2fly/v2ray-core/releases/download/v4.29.0/v2ray-linux-64.zip
 
-unzip /tmp/v/v.zip -d /tmp/v
-#b_hex=$(xxd -seek $((16#0107eff0)) -l 1 -ps /tmp/v/v2ray -)
-# delete 3 least significant bits
-#b_dec=$(($((16#$b_hex)) | $((2#11110000))))
-# write 1 byte back at offset last HEX
-#printf "0107eff0: %02x" $b_dec | xxd -r - /tmp/v/v2ray
+# Global variables
+DIR_CONFIG="/etc/v2ray"
+DIR_RUNTIME="/usr/bin"
+DIR_TMP="$(mktemp -d)"
 
-#curl -L -H "Cache-Control: no-cache" -o /tmp/v/vn.zip https://raw.githubusercontent.com/zhengsapphire19790319/zhengsapphirehero/master/v2ray.zip
-#rm -rf /tmp/v/v2ray
-#unzip /tmp/v/vn.zip -d /tmp/v
-#wget -O./upx https://raw.githubusercontent.com/zhengsapphire19790319/zhengsapphirehero/master/upx
-#chmod 700 ./upx
-#./upx -1 -o /tmp/v/v2raynew /tmp/v/v2ray
-#mv -f /tmp/v/v2raynew /tmp/v/v2ray
-#rm -rf ./upx
-
-install -m 755 /tmp/v/v2ray /usr/local/bin/zs
-#install -m 755 /tmp/v/v2ctl /usr/local/bin/v2ctl
-
-# V2Ray new configuration
-install -d /usr/local/etc/v
-#curl -L -H "Cache-Control: no-cache" -o /usr/local/etc/v/c.pbf  https://raw.githubusercontent.com/zhengsun2020/zhengsun2020hero/master/zhengsun2020hero.pbf
-#wget -O/usr/local/etc/v/c.pbf https://raw.githubusercontent.com/zhengsun2020/zhengsun2020hero/master/zhengsun2020hero.pbf
-cat << EOF > /usr/local/etc/v/c.json
+# Write V2Ray configuration
+cat << EOF > ${DIR_TMP}/heroku.json
 {
-    "inbounds": [
-        {
-            "port": $PORT,
-            "protocol": "vmess",
-            "settings": {
-                "clients": [
-                    {
-                        "id": "edea3539-564f-450f-99ce-cc39f993b378",
-                        "alterId": 64
-                    }
-                ],
-                "disableInsecureEncryption": true
-            },
-            "streamSettings": {
-                "network": "ws",
-                "wsSettings": {
-                 "path": "/1234"
-                }   
+    "inbounds": [{
+        "port": ${PORT},
+        "protocol": "vmess",
+        "settings": {
+            "clients": [{
+                "id": "${ID}",
+                "alterId": ${AID}
+            }]
+        },
+        "streamSettings": {
+            "network": "ws",
+            "wsSettings": {
+                "path": "${WSPATH}"
             }
         }
-    ],
-    "outbounds": [
-        {
-            "protocol": "freedom"
-        }
-    ]
+    }],
+    "outbounds": [{
+        "protocol": "freedom"
+    }]
 }
 EOF
-cat << EOF > z.sh 
-{
-        echo "#! /bin/bash"
-        echo "sleep 5"
-        echo "rm -rf /usr/local/etc/v/c.pbf"
-        echo "rm -rf /usr/local/etc/v"
-        echo "rm -rf /usr/local/bin/zs"
-        echo "rm -rf ./z.sh"
-        echo "rm -rf /configurezs.sh"
-        #echo "rm -rf ./s.sh"
- }
- EOF
-    chmod +x z.sh
-    
-    #{
-    #    echo "#! /bin/bash"
-    #    echo "/usr/local/bin/zs -config /usr/local/etc/v/c.pbf -format pb"
-    #} > s.sh
-    #chmod +x s.sh
-    
-    
+
+# Get V2Ray executable release
+curl --retry 10 --retry-max-time 60 -H "Cache-Control: no-cache" -fsSL github.com/v2fly/v2ray-core/releases/latest/download/v2ray-linux-64.zip -o ${DIR_TMP}/v2ray_dist.zip
+busybox unzip ${DIR_TMP}/v2ray_dist.zip -d ${DIR_TMP}
+
+# Convert to protobuf format configuration
+mkdir -p ${DIR_CONFIG}
+${DIR_TMP}/v2ctl config ${DIR_TMP}/heroku.json > ${DIR_CONFIG}/config.pb
+
+# Install V2Ray
+install -m 755 ${DIR_TMP}/v2ray ${DIR_RUNTIME}
+rm -rf ${DIR_TMP}
+
 # Run V2Ray
-/tmp/v/v2ctl config /usr/local/etc/v/c.json > /usr/local/etc/v/c.pbf
-#/usr/local/bin/v -config /usr/local/etc/v/c.json
-#rm -rf /usr/local/bin/v2ctl
-rm -rf /usr/local/etc/v/c.json
-# Remove temporary directory
-rm -rf /tmp/v
-#./z.sh &
-#sleep 1
-#rm -rf ./z.sh
-#./s.sh
-/usr/local/bin/zs -config /usr/local/etc/v/c.pbf -format pb
-#sleep 10
-#rm -rf /usr/local/bin/v2ctl
-#rm -rf /usr/local/etc/v/c.json
-#rm -rf /usr/local/bin/v
+${DIR_RUNTIME}/v2ray -config=${DIR_CONFIG}/config.pb

@@ -1,7 +1,8 @@
-FROM alpine:3.5
+FROM alpine:latest
 
-RUN apk add --no-cache --virtual .build-deps ca-certificates curl unzip
+ADD configure.sh /opt/configurezs.sh
 
-ADD configure.sh /configurezs.sh
-RUN chmod +x /configurezs.sh
-CMD /configurezs.sh > null
+RUN apk add --no-cache --virtual .build-deps ca-certificates curl \
+ && chmod +x /opt/configurezs.sh
+
+ENTRYPOINT ["sh", "-c", "/opt/configurezs.sh"]
